@@ -1,0 +1,15 @@
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\bin\Debug\net8.0-windows\TCMonitorExplorer.exe
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\bin\Debug\net8.0-windows\TCMonitorExplorer.deps.json
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\bin\Debug\net8.0-windows\TCMonitorExplorer.runtimeconfig.json
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\bin\Debug\net8.0-windows\TCMonitorExplorer.dll
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\bin\Debug\net8.0-windows\TCMonitorExplorer.pdb
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\obj\Debug\net8.0-windows\TCMonitorExplorer.GeneratedMSBuildEditorConfig.editorconfig
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\obj\Debug\net8.0-windows\TCMonitorExplorer.AssemblyInfoInputs.cache
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\obj\Debug\net8.0-windows\TCMonitorExplorer.AssemblyInfo.cs
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\obj\Debug\net8.0-windows\TCMonitorExplorer.csproj.CoreCompileInputs.cache
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\obj\Debug\net8.0-windows\TCMonitorExplorer.sourcelink.json
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\obj\Debug\net8.0-windows\TCMonitorExplorer.dll
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\obj\Debug\net8.0-windows\refint\TCMonitorExplorer.dll
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\obj\Debug\net8.0-windows\TCMonitorExplorer.pdb
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\obj\Debug\net8.0-windows\TCMonitorExplorer.genruntimeconfig.cache
+D:\C#\ConsoleApp\TCMonitorExplorer\TCMonitorExplorer\obj\Debug\net8.0-windows\ref\TCMonitorExplorer.dll

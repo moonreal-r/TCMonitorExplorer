@@ -1,145 +1,185 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Threading;
+using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Windows.Forms;
 
 class Program
 {
-    // 已处理的文件，防止重复触发
-    static readonly HashSet<string> HandledFiles = new();
-
-    // Explorer 窗口创建时间记录（HWND -> 时间）
-    static readonly Dictionary<int, DateTime> ExplorerBirth = new();
-
-    // 已隐藏的 Explorer，避免重复 Hide
-    static readonly HashSet<int> HiddenExplorers = new();
-
-    // Shell.Application 只创建一次
-    static dynamic ShellApp;
-
-    // Win32
-    [DllImport("user32.dll")]
-    static extern bool SetWindowPos(
-        IntPtr hWnd,
-        IntPtr hWndInsertAfter,
-        int X,
-        int Y,
-        int cx,
-        int cy,
-        uint uFlags
-    );
-    
-    static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
-
-    const uint SWP_NOSIZE = 0x0001;
-    const uint SWP_NOZORDER = 0x0004;
-    const uint SWP_NOACTIVATE = 0x0010;
-    const uint SWP_SHOWWINDOW = 0x0040;
-    
-    static void MoveExplorerOffScreen(IntPtr hwnd)
+    [STAThread]
+    static void Main()
     {
-        SetWindowPos(
-            hwnd,
-            HWND_BOTTOM,
-            -32000,   // ⭐ 系统级不可见坐标
-            -32000,
-            0,
-            0,
-            SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW
+        var tcManager = new TotalCommanderManager();
+        if (!tcManager.Initialize())
+        {
+            Console.WriteLine("未找到 Total Commander，程序退出。");
+            return;
+        }
+
+        var explorerManager = new ExplorerManager(tcManager);
+        explorerManager.MainLoop();
+    }
+}
+
+#region Explorer相关
+class ExplorerManager
+{
+    private readonly HashSet<string> handledFiles = new();
+    private readonly Dictionary<int, DateTime> explorerBirth = new();
+    private readonly TotalCommanderManager tcManager;
+    private dynamic shellApp;
+
+    public ExplorerManager(TotalCommanderManager tcMgr)
+    {
+        tcManager = tcMgr;
+        shellApp = Activator.CreateInstance(
+            Type.GetTypeFromProgID("Shell.Application")
         );
     }
 
-
-    static void Main()
+    public void MainLoop()
     {
         Console.WriteLine("TC Shell Listener (Hide + Quit Explorer)");
-
-        ShellApp = Activator.CreateInstance(
-            Type.GetTypeFromProgID("Shell.Application")
-        );
-
         while (true)
         {
             ScanExplorerWindows();
-            Thread.Sleep(100); // 已验证的稳定值
+            Thread.Sleep(100);
         }
     }
 
-    static void ScanExplorerWindows()
+    private void ScanExplorerWindows()
     {
-        foreach (dynamic window in ShellApp.Windows())
+        foreach (dynamic window in shellApp.Windows())
         {
             try
             {
-                if (window.Name != "文件资源管理器")
-                    continue;
-
+                if (window.Name != "文件资源管理器") continue;
                 int hwnd = (int)window.HWND;
-
-                // 第一次看到这个 Explorer
-                if (!ExplorerBirth.ContainsKey(hwnd))
+                if (!explorerBirth.ContainsKey(hwnd))
                 {
-                    ExplorerBirth[hwnd] = DateTime.Now;
-
-                    // ⭐ 直接移出屏幕
-                    MoveExplorerOffScreen((IntPtr)hwnd);
-                    
+                    explorerBirth[hwnd] = DateTime.Now;
+                    Win32Helper.MoveExplorerOffScreen((IntPtr)hwnd);
                     continue;
                 }
-
-                var age = (DateTime.Now - ExplorerBirth[hwnd]).TotalMilliseconds;
-
-                // 超过 1500ms 还没选中任何文件 → 直接关闭
+                var age = (DateTime.Now - explorerBirth[hwnd]).TotalMilliseconds;
                 if (age > 1500)
                 {
                     window.Quit();
-                    ExplorerBirth.Remove(hwnd);
+                    explorerBirth.Remove(hwnd);
                     continue;
                 }
-                
                 dynamic items = window.Document.SelectedItems();
-                if (items == null || items.Count == 0)
-                    continue;
+                if (items == null || items.Count == 0) continue;
 
                 foreach (dynamic item in items)
                 {
                     string path = item.Path;
-                    if (string.IsNullOrEmpty(path))
-                        continue;
-
-                    if (HandledFiles.Contains(path))
-                        continue;
-
-                    HandledFiles.Add(path);
-
-                    // 打开 TC
-                    OpenInTotalCommander(path);
-
-                    // ⭐ 给 TC 一点时间接管
+                    if (string.IsNullOrEmpty(path) || handledFiles.Contains(path)) continue;
+                    handledFiles.Add(path);
+                    tcManager.OpenInTotalCommander(path);
                     Thread.Sleep(200);
-
-                    // ⭐ 后台关闭 Explorer（用户看不到）
                     window.Quit();
                     return;
                 }
             }
-            catch
-            {
-                // Explorer 初始化 / 已关闭，忽略
-            }
+            catch { /* Explorer初始化失败或已关闭 */ }
         }
     }
+}
+#endregion
 
-    static void OpenInTotalCommander(string file)
+#region TC和Win32管理
+class TotalCommanderManager
+{
+    public string TcPath { get; private set; }
+    
+    private static readonly string ConfigFilePath = 
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tc_config.txt");
+
+    public bool Initialize()
+    {
+        TcPath = LoadTcPathFromConfig();
+        if (!string.IsNullOrEmpty(TcPath) && File.Exists(TcPath))
+        {
+            Console.WriteLine("TOTALCMD路径已获取");
+            return true;
+        }
+        
+        TcPath = FindTotalCommanderPath();
+        if (!string.IsNullOrEmpty(TcPath))
+        {
+            Console.WriteLine("TOTALCMD路径已保存");
+            SaveTcPathToConfig(TcPath);
+        }
+        
+        return !string.IsNullOrEmpty(TcPath);
+    }
+
+    private string LoadTcPathFromConfig()
+    {
+        if (File.Exists(ConfigFilePath))
+            return File.ReadAllText(ConfigFilePath).Trim();
+        return null;
+    }
+    private void SaveTcPathToConfig(string path)
+    {
+        File.WriteAllText(ConfigFilePath, path ?? "");
+    }
+
+    public void OpenInTotalCommander(string file)
     {
         var psi = new ProcessStartInfo
         {
-            FileName = @"F:\Program Files\TotalCMD64\TOTALCMD64.EXE",
+            FileName = TcPath,
             Arguments = $"/O /T \"{file}\"",
             UseShellExecute = false
         };
-
         Process.Start(psi);
     }
+
+    private string FindTotalCommanderPath()
+    {
+        var procs = Process.GetProcessesByName("TOTALCMD64");
+        if (!procs.Any())
+            procs = Process.GetProcessesByName("TOTALCMD");
+
+        if (procs.Any())
+        {
+            try
+            {
+                return procs[0].MainModule.FileName;
+            }
+            catch { }
+        }
+
+        using var ofd = new OpenFileDialog();
+        ofd.Filter = "TOTALCMD|TOTALCMD64.EXE";
+        ofd.Title = "请选择 Total Commander 的路径";
+        return ofd.ShowDialog() == DialogResult.OK ? ofd.FileName : null;
+    }
 }
+
+static class Win32Helper
+{
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd, IntPtr hWndInsertAfter,
+        int X, int Y, int cx, int cy, uint uFlags
+    );
+
+    private static readonly IntPtr HWND_BOTTOM = new(1);
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOACTIVATE = 0x0010;
+    private const uint SWP_SHOWWINDOW = 0x0040;
+
+    public static void MoveExplorerOffScreen(IntPtr hwnd)
+    {
+        SetWindowPos(
+            hwnd, HWND_BOTTOM, -32000, -32000, 0, 0,
+            SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW
+        );
+    }
+}
+#endregion
