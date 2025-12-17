@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TCMonitorExplorer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+72cbdeaf83b5eaa19e9db3b719960a00dcfe7677")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5dcb878390a72cde1929cf477bc3703f5a4e99a4")]
 [assembly: System.Reflection.AssemblyProductAttribute("TCMonitorExplorer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TCMonitorExplorer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
