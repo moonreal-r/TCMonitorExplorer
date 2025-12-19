@@ -26,7 +26,6 @@ class Program
 #region Explorer相关
 class ExplorerManager
 {
-    private readonly HashSet<string> handledFiles = new();
     private readonly Dictionary<int, DateTime> explorerBirth = new();
     private readonly TotalCommanderManager tcManager;
     private dynamic shellApp;
@@ -63,31 +62,49 @@ class ExplorerManager
                     Win32Helper.MoveExplorerOffScreen((IntPtr)hwnd);
                     continue;
                 }
+
                 var age = (DateTime.Now - explorerBirth[hwnd]).TotalMilliseconds;
-                if (age > 1500)
+                dynamic items = window.Document.SelectedItems();
+
+                if (items == null || items.Count == 0)
                 {
-                    window.Quit();
-                    explorerBirth.Remove(hwnd);
+                    if (age > 500)
+                    {
+                        string folderPath = window.Document.Folder.Self.Path as string;
+                        if (!string.IsNullOrEmpty(folderPath))
+                        {
+                            Console.WriteLine($"当前文件夹: {folderPath}");
+                            tcManager.OpenInTotalCommander(folderPath);
+                            Thread.Sleep(200);
+                        }
+                        window.Quit();
+                        explorerBirth.Remove(hwnd);
+                    }
                     continue;
                 }
-                dynamic items = window.Document.SelectedItems();
-                if (items == null || items.Count == 0) continue;
 
                 foreach (dynamic item in items)
                 {
                     string path = item.Path;
-                    if (string.IsNullOrEmpty(path) || handledFiles.Contains(path)) continue;
-                    handledFiles.Add(path);
+                    bool isFolder = item.IsFolder;
+                    Console.WriteLine($"选择对象: {path} isFolder: {isFolder}");
+
+                    if (string.IsNullOrEmpty(path)) continue;
                     tcManager.OpenInTotalCommander(path);
                     Thread.Sleep(200);
                     window.Quit();
+                    explorerBirth.Remove(hwnd);
                     return;
                 }
             }
-            catch { /* Explorer初始化失败或已关闭 */ }
+            catch (Exception ex)
+            {
+                Console.WriteLine("处理 Explorer 时异常: " + ex.Message);
+            }
         }
     }
 }
+
 #endregion
 
 #region TC和Win32管理
@@ -128,12 +145,12 @@ class TotalCommanderManager
         File.WriteAllText(ConfigFilePath, path ?? "");
     }
 
-    public void OpenInTotalCommander(string file)
+    public void OpenInTotalCommander(string path)
     {
         var psi = new ProcessStartInfo
         {
             FileName = TcPath,
-            Arguments = $"/O /T \"{file}\"",
+            Arguments = $"/O /T \"{path}\"",
             UseShellExecute = false
         };
         Process.Start(psi);
